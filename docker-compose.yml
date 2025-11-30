@@ -1,0 +1,173 @@
+
+services:
+  # Base de datos MySQL
+  mysql:
+    image: mysql:8.0
+    container_name: inventory_mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: inventory_db
+      MYSQL_USER: inventory_user
+      MYSQL_PASSWORD: inventory123
+    ports:
+      - "3309:3309"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - inventory_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+# Agregar después del servicio mysql
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: phpmyadmin
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      PMA_USER: inventory_user
+      PMA_PASSWORD: inventory123
+    ports:
+      - "8080:80"
+    depends_on:
+      - mysql
+    networks:
+      - inventory_network
+    restart: unless-stopped
+
+  # Microservicio de Productos
+  products-service:
+    image: node:18-alpine
+    container_name: products_service
+    working_dir: /app
+    environment:
+      - DB_HOST=mysql
+      - DB_USER=inventory_user
+      - DB_PASSWORD=inventory123
+      - DB_NAME=inventory_db
+      - PORT=3001
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./backend/products-service:/app
+    command: sh -c "npm install && npm start"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - inventory_network
+    restart: unless-stopped
+
+  # Microservicio de Stock
+  stock-service:
+    image: node:18-alpine
+    container_name: stock_service
+    working_dir: /app
+    environment:
+      - DB_HOST=mysql
+      - DB_USER=inventory_user
+      - DB_PASSWORD=inventory123
+      - DB_NAME=inventory_db
+      - PORT=3002
+    ports:
+      - "3002:3002"
+    volumes:
+      - ./backend/stock-service:/app
+    command: sh -c "npm install && npm start"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - inventory_network
+    restart: unless-stopped
+
+  # Microservicio de Proveedores
+  suppliers-service:
+    image: node:18-alpine
+    container_name: suppliers_service
+    working_dir: /app
+    environment:
+      - DB_HOST=mysql
+      - DB_USER=inventory_user
+      - DB_PASSWORD=inventory123
+      - DB_NAME=inventory_db
+      - PORT=3003
+    ports:
+      - "3003:3003"
+    volumes:
+      - ./backend/suppliers-service:/app
+    command: sh -c "npm install && npm start"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - inventory_network
+    restart: unless-stopped
+
+  # Prometheus - Monitoreo
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    ports:
+      - "9091:9090"  # ← CAMBIAR AQUÍ: de 9090:9090 a 9091:9090
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - inventory_network
+    restart: unless-stopped
+
+  # Grafana - Visualización
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_SECURITY_ADMIN_USER=admin
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - inventory_network
+    restart: unless-stopped
+
+  # Frontend React
+  frontend:
+    image: node:18-alpine
+    container_name: inventory_frontend
+    working_dir: /app
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_PRODUCTS_API=http://localhost:3001
+      - VITE_STOCK_API=http://localhost:3002
+      - VITE_SUPPLIERS_API=http://localhost:3003
+    volumes:
+      - ./frontend:/app
+    command: sh -c "npm install && npm run dev -- --host"
+    depends_on:
+      - products-service
+      - stock-service
+      - suppliers-service
+    networks:
+      - inventory_network
+    restart: unless-stopped
+
+networks:
+  inventory_network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  prometheus_data:
+  grafana_data:

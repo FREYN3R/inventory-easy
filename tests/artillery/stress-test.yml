@@ -1,0 +1,53 @@
+config:
+  target: "http://localhost:3001"
+  phases:
+    - duration: 60
+      arrivalRate: 10
+      name: "Warm up"
+    - duration: 120
+      arrivalRate: 50
+      name: "Sustained load"
+    - duration: 60
+      arrivalRate: 100
+      name: "Stress test"
+  http:
+    timeout: 10
+
+scenarios:
+  - name: "Get all products"
+    weight: 40
+    flow:
+      - get:
+          url: "/api/products"
+          expect:
+            - statusCode: 200
+            - contentType: json
+            - hasProperty: "success"
+
+  - name: "Search products"
+    weight: 30
+    flow:
+      - get:
+          url: "/api/products?search={{ $randomString() }}"
+          expect:
+            - statusCode: 200
+
+  - name: "Get product by ID"
+    weight: 20
+    flow:
+      - get:
+          url: "/api/products/{{ $randomNumber(1, 5) }}"
+
+  - name: "Create product"
+    weight: 10
+    flow:
+      - post:
+          url: "/api/products"
+          json:
+            name: "Test Product {{ $randomString() }}"
+            description: "Created by Artillery"
+            sku: "ART-{{ $randomNumber(1000, 9999) }}"
+            price: "{{ $randomNumber(100, 10000) }}"
+            category: "Testing"
+          expect:
+            - statusCode: [201, 409]
