@@ -279,14 +279,3 @@ inventory-easy/
 
 5. **Sostenibilidad Económica**: El proyecto puede ejecutarse completamente gratis en fase de desarrollo y con costos mínimos en producción ($0-46/mes).
 
-
-## Contacto y Soporte
-
-**Freyner Alexander Nazareno Cortes**
-- Email: fnazareno@estudiante.uniajc.edu
-- Programa: Ingeniería de Sistemas
-- Curso: Arquitectura de Sistemas Computacionales
-
-**Docente:**
-- Gustavo Adolfo Saavedra Perdomo
-- Email: gustavo.saavedra@unad.edu.co
